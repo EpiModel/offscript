@@ -9,13 +9,13 @@ renv::init()
 
 source("R/shared_variables.R", local = TRUE)
 
-# This code installs the correct version of EpiModelHIV-p for your project
-renv::install(paste0("EpiModel/EpiModelHIV-p@", EMHIVp_branch))
+# This code installs the version of EpiModelHIV used for the paper
+renv::install("EpiModel/EpiModelHIV@LowBarrier-JID")
 
 # Snapshot the list of installed packages to the `renv.lock` file
 renv::snapshot()
 
-# Get the initial set of parameters from EpiModelHIV-p
+# Get the initial set of parameters from EpiModelHIV
 fs::file_copy(
   system.file("model_parameters.csv", package = "EpiModelHIV"),
   fs::path(input_dir, "model_parameters.csv"),
@@ -24,7 +24,7 @@ fs::file_copy(
 
 # # To install the packages from scratch:
 # renv::install(c(
-#     "Epimodel/EpiModelHIV-p",
+#     "EpiModel/EpiModelHIV@LowBarrier-JID",
 #     "Epimodel/EpiModelHPC",
 #     "readr", "RcppRoll", "viridis"
 # ))

@@ -1,4 +1,24 @@
-/paper_review/R0
-paper_review/.DS_Store
+# R and RStudio
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Renviron
 .DS_Store
-/paper_review/R1
+
+# renv and pixi environments
+renv/
+.pixi/
+
+# Files built by the pipeline (estimates, simulations, tables, figures)
+data/run
+data/output
+workflows/
+
+# Internal project files, kept in the private repository
+/paper
+/paper_review
+/plan
+CLAUDE.md
+AGENTS.md
+.claude/

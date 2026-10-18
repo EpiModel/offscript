@@ -1,54 +1,38 @@
-# Potential Risks and Benefits of Low-Barrier Access and Monitoring for HIV Preexposure Prophylaxis: A Modeling Study
+# Low-Barrier Access and Monitoring for HIV PrEP
 
-*A stochastic network-based modeling study of over-the-counter (OTC) tenofovir disoproxil fumarate/emtricitabine (TDF/FTC) pre-exposure prophylaxis (PrEP) among gay, bisexual, and other men who have sex with men (GBMSM) in Atlanta.*
+This repository holds the model code for:
 
-> **OFFSCRIPT**, NIH/NIMH R21 MH136855. Built on the [EpiModel](https://www.epimodel.org/) / [EpiModelHIV-p](https://github.com/EpiModel/EpiModelHIV-p) platform.
+> Le Guillou AV, Marcus JL, Krakower DS, Violette LR, Jenness SM. Potential risks and benefits of low-barrier access and monitoring for HIV pre-exposure prophylaxis: a modeling study. _J Infect Dis._ 2026; 234(4): 519-529. https://doi.org/10.1093/infdis/jiag369
 
----
+It contains the R scripts for network estimation, model calibration, the over-the-counter PrEP scenarios, and the processing that produced the paper's tables and figures, along with the model parameter file (`data/input/model_parameters.csv`) and the lockfiles that record package versions (`renv.lock` for local runs, `renv.lock.hpc` for the cluster). Simulation output is not included. The work was funded by NIH/NIMH R21 MH136855 (OFFSCRIPT).
 
-## Abstract
+## Engine
 
-**Introduction.** PrEP is highly effective for HIV prevention, but its impact is limited by access barriers. Low-barrier delivery strategies for daily oral TDF/FTC, such as over-the-counter availability, could improve access by eliminating clinic visits, though they may increase risks from reduced monitoring, including drug resistance, renal toxicity, and hepatitis B virus (HBV) reactivation. We estimated the population-level benefits and risks of introducing OTC PrEP to complement clinic-based care.
+The model runs on EpiModelHIV. The version used for the paper is this release: https://github.com/EpiModel/EpiModelHIV/releases/tag/LowBarrier-JID
 
-**Methods.** Using a stochastic network-based model of HIV and sexually transmitted infection (STI) transmission among GBMSM in Atlanta, we simulated two delivery pathways: standard prescription PrEP (clinic-based PrEP) and OTC PrEP with simplified initiation and reduced monitoring. We modeled 10% to 50% increases in total PrEP coverage over 10 years. Outcomes included HIV infections averted, STI incidence, contraindicated PrEP use with subnormal renal function (GFR < 60 mL/min/1.73 m2), HBV reactivations, and drug resistance.
+```r
+remotes::install_github("EpiModel/EpiModelHIV@LowBarrier-JID")
+```
 
-**Results.** OTC PrEP increased coverage and reduced HIV incidence across all scenarios. A 50% coverage increase averted 15.4% of HIV infections over 10 years. However, clinical risks increased: renal impairment exposure rose from 2.5% to 4.8%, HBV reactivations reached 2.27 per 100 person-years, and TDF/FTC resistance increased to 8.40 events per 100 HIV infections. Sensitivity analyses showed that confirming HIV-negative status at initiation reduced resistance by more than 90% without diminishing prevention benefits, while frequent renal monitoring substantially reduced renal risk.
+## Setup
 
-**Conclusions.** OTC PrEP could produce meaningful population-level HIV prevention benefits if it expands PrEP coverage beyond clinic-based care. Its net public health impact depends on implementation choices that preserve key safety functions, particularly HIV testing at initiation and targeted renal monitoring, without undermining gains in access.
+Open the project in R 4.5 and restore the packages with renv:
 
----
+```r
+renv::restore(exclude = "ARTnetData")
+```
 
-## Headline findings
+ARTnetData is a private package and is needed only for network estimation (step A below). Every later step reads the fitted network objects that step A saves. The paper's networks were estimated with ARTnet 2.9.0, which is no longer public, so the lockfiles install ARTnet 2.9.3, the first version in the public [ARTnet](https://github.com/EpiModel/ARTnet) repository. Networks re-estimated with it may not match the paper's exactly.
 
-The analysis is organized around one benefit and three safety levers: prevention benefit scales with net coverage, while each clinical risk is governed by a specific implementation parameter rather than by OTC access itself.
+## Running the pipeline
 
-- **Benefit scales with net coverage.** Introducing OTC PrEP alongside clinic-based PrEP reduced HIV incidence in every scenario. The percentage of infections averted (PIA) rose from 3.2% at a +10% coverage increase to 15.4% at +50% over 10 years, with the number needed to treat roughly stable (about 45 to 48). Prevention benefit was governed primarily by coverage and persistence rather than by per-user adherence.
-- **Resistance is governed by HIV testing at initiation.** Combined TDF/FTC resistance rose to 8.40 events per 100 HIV infections at +50% coverage, concentrated among OTC initiations without HIV status confirmation. Confirming HIV-negative status at initiation was the dominant lever: raising confirmation from 0% to 100% cut FTC resistance by more than 90% (9.39 to 0.82 per 100 infections) without reducing prevention benefits.
-- **Renal risk is governed by monitoring frequency.** Exposure to TDF/FTC with subnormal renal function (GFR < 60 mL/min/1.73 m2) rose from 2.5% to 4.8% as coverage increased, and renal monitoring frequency was the dominant lever for containing it. HBV reactivations reached 2.27 per 100 person-years among individuals with chronic HBV.
+Scripts are run from the project root. Each step folder has a `z-context.R` that switches between a small local model and the full model on a SLURM cluster (set `hpc_context <- TRUE`). For the cluster, edit `mail_user` and the node setup in `R/hpc_configs.R`.
 
----
+1. **Networks (`R/A-networks/`).** `1-estimation.R` fits the partnership network models from ARTnet (needs ARTnetData), and `2-diagnostics.R` and `3-assess.R` check them. `workflow-networks.R` runs both on the cluster.
+2. **Calibration (`R/Z-calibration/`).** `workflow-swfcalib.R` calibrates the model to the Atlanta targets with swfcalib (`swfcalib_config.R` defines the waves), and `workflow-restart_point.R` with `choose_restart.R` saves the restart point. `finalize_params.R` writes the calibrated values to `data/input/model_parameters.csv`. `R/z-gfr_optim.R` fits the starting distribution for the renal function module.
+3. **Intervention scenarios (`R/F-intervention_scenarios/`).** The scenarios are built in code (`utils-scenarios.R` and the `0*-make_scenarios*.R` scripts) and run from the restart point by the `workflow-intervention*.R` scripts: `workflow-intervention.R` for the main scenarios, `workflow-intervention_plots.R` for the coverage grid behind the contour plots, `workflow-intervention_find.R` for the search for target coverage levels, and `workflow-intervention_indics.R` for the sensitivity analyses. `1-scenarios.R` runs a small version locally.
+4. **Tables and figures (`R/F-intervention_scenarios/`).** `2-process_tables.R` and `2-process_plot_data.R` summarize the merged simulations, and `3-contour_plot.R`, `4-filter_csv_tables.R`, and `6-tables.R` build the figures and tables in `data/output/`.
 
-## Repository structure
+## Source
 
-| Path | Contents |
-|---|---|
-| [R/](R/) | EpiModelHIV-p analysis pipeline: A networks, B and C netsim exploration and scenarios, D restart point, E and F intervention exploration and production scenarios, Z calibration (`swfcalib`), plus `00-setup.R`, `shared_variables.R`, `hpc_configs.R`, `netsim_settings.R`, and `z-gfr_optim.R` for the renal module |
-| `data/input/` | Model input parameter files (`model_parameters.csv`, `scenarios.csv`) |
-
-Runtime environment: R 4.5, with dependencies managed through `renv` (`renv.lock` for local, `renv.lock.hpc` for the cluster) and `pixi` (`pixi.toml`). Simulations run locally for development and on a SLURM high-performance computing cluster for production scenarios.
-
----
-
-## Team
-
-- Samuel M. Jenness (PI), Emory University
-- Adrien Le Guillou (analyst), Emory University and University of Reims
-- Julia L. Marcus, Harvard Medical School
-- Douglas S. Krakower, Harvard Medical School and Beth Israel Deaconess Medical Center
-- Lauren A. Violette, Merck
-
-## Related work
-
-- **Modeling platform:** [EpiModel](https://www.epimodel.org/) and [EpiModelHIV-p](https://github.com/EpiModel/EpiModelHIV-p).
-- **Data sources:** ARTnet for sexual network parameterization; 2019 Atlanta and Georgia HIV and STI surveillance for calibration targets; external clinical literature for the renal, HBV, and resistance modules.
-- **Funding:** NIH/NIMH R21 MH136855.
+This is a snapshot of the private project repository, taken July 9, 2026, at the revision submitted to the journal. Its code matches the private repository at commit `30dc8a0`, apart from two added lines in `3-contour_plot.R` that save the contour figure as TIFF and PDF.
